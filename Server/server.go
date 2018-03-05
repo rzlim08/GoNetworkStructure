@@ -25,11 +25,11 @@ func main() {
 }
 func (foo *GServer)Register(ip string, response *[]string) error {
 	fmt.Println("Got connection from: ", ip)
+	*response = conns
 	if !hasIP(conns, ip) {
 		fmt.Println("adding connection")
 		conns = append(conns, ip)
 	}
-	*response = conns
 	return nil
 }
 

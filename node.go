@@ -5,7 +5,6 @@ import (
 	"net"
 	"os"
 	"net/rpc"
-	"log"
 	"strconv"
 )
 
@@ -15,7 +14,7 @@ func main() {
 	if (len(os.Args)>1){
 		ip_addr = os.Args[1]
 	}else{
-		ip_addr = ":8080"
+		ip_addr = "127.0.0.1:0"
 	}
 	// Start Listener
 	udp_addr, _ := net.ResolveUDPAddr("udp", ip_addr)
@@ -27,46 +26,41 @@ func main() {
 
 	go RunListener(client)
 
+	otherNodes := serverRegister(client.LocalAddr().String())
 
+	for _, ip := range otherNodes{
+		node_udp, _ := net.ResolveUDPAddr("udp", ip)
+		// Connect to other node
+		node_client, err := net.DialUDP("udp", udp_addr, node_udp)
+		if err != nil {
+			panic(err)
+		}
+		// Exchange messages with other node
+		node_client.Write([]byte("write byte"))
+
+	}
+
+
+	select {}
+}
+func serverRegister(localIP string) []string {
 	// Connect to server
 	serverConn, err := rpc.Dial("tcp", ":8081")
 	if err != nil {
 		panic(err)
 	}
-	localIP := GetLocalMinerIP()
 	var response []string
-
 	// Get IP from server
 	err = serverConn.Call("GServer.Register", localIP, &response)
-	if err != nil{
+	if err != nil {
 		panic(err)
 	}
-	if len(response)>0{
+	if len(response) > 0 {
 		for ind, val := range response {
 			fmt.Println(strconv.Itoa(ind) + ": " + val)
 		}
 	}
-
-	// Connect to other node
-	// Exchange messages with other node
-	select {}
-}
-
-func GetLocalMinerIP() string {
-	addresses, err := net.InterfaceAddrs()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// https://stackoverflow.com/questions/23558425/how-do-i-get-the-local-ip-address-in-go
-	for _, address := range addresses {
-		if ipNet, ok := address.(*net.IPNet); ok && !ipNet.IP.IsLoopback() {
-			if ipNet.IP.To4() != nil {
-				return ipNet.IP.String()
-			}
-		}
-	}
-	return ""
+	return response
 }
 
 func RunListener(client *net.UDPConn) {
